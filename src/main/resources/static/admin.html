@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<!--
+  admin.html — Panel de gestión (requiere haber iniciado sesión).
+  Tiene 5 secciones (pestañas), cada una conectada a un controlador del backend:
+    #tab-events  → /api/events   (ADMIN y ORGANIZER)
+    #tab-places  → /api/places   (solo ADMIN)
+    #tab-types   → /api/types    (solo ADMIN)
+    #tab-users   → /api/users    (solo ADMIN)
+    #tab-reports → /api/reports  (solo ADMIN)
+  Los elementos con la clase "admin-only" empiezan ocultos (d-none) y admin.js
+  los muestra si el rol es ADMIN. Toda la lógica está en admin.js.
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de Gestión - Cultura El Carmen</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <nav class="navbar sticky-top">
+    <div class="container d-flex justify-content-between align-items-center">
+      <a class="navbar-brand fw-bold d-flex align-items-center gap-2 text-primary" href="index.html">
+        <span class="navbar-plato-wrapper">
+          <img src="img/plato.png" alt="Cerámica El Carmen" class="navbar-plato">
+        </span>
+        <span>Cultura El Carmen</span>
+      </a>
+
+      <div class="d-flex align-items-center gap-3">
+        <div class="text-end d-none d-sm-block">
+          <div id="userNameDisplay" class="fw-bold small text-dark">Usuario</div>
+          <span id="userRoleBadge" class="badge bg-primary rounded-pill">ROL</span>
+        </div>
+        <a href="index.html" class="btn btn-outline-secondary btn-sm rounded-pill">
+          <i class="bi bi-eye me-1"></i>Ver Cartelera
+        </a>
+        <button onclick="logout()" class="btn btn-outline-danger btn-sm rounded-pill">
+          <i class="bi bi-box-arrow-right me-1"></i>Salir
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container my-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+      <div>
+        <h3 class="fw-bold mb-1" id="panelTitle">Gestión de Eventos</h3>
+        <p class="text-muted small mb-0" id="panelSubtitle">Administra la programación cultural del municipio</p>
+      </div>
+    </div>
+
+    <ul class="nav nav-pills mb-4 gap-2" id="adminTabs">
+      <li class="nav-item">
+        <button class="nav-link active rounded-pill fw-semibold" onclick="switchTab('events', this)">
+          <i class="bi bi-calendar-event me-1"></i> Eventos
+        </button>
+      </li>
+      <li class="nav-item admin-only d-none">
+        <button class="nav-link rounded-pill fw-semibold" onclick="switchTab('places', this)">
+          <i class="bi bi-geo-alt me-1"></i> Lugares
+        </button>
+      </li>
+      <li class="nav-item admin-only d-none">
+        <button class="nav-link rounded-pill fw-semibold" onclick="switchTab('types', this)">
+          <i class="bi bi-tags me-1"></i> Categorías
+        </button>
+      </li>
+      <li class="nav-item admin-only d-none">
+        <button class="nav-link rounded-pill fw-semibold" onclick="switchTab('users', this)">
+          <i class="bi bi-people me-1"></i> Usuarios
+        </button>
+      </li>
+      <li class="nav-item admin-only d-none">
+        <button class="nav-link rounded-pill fw-semibold" onclick="switchTab('reports', this)">
+          <i class="bi bi-bar-chart-line me-1"></i> Reportes
+        </button>
+      </li>
+    </ul>
+
+    <div id="alertBox" class="alert d-none rounded-3" role="alert"></div>
+
+    <section id="tab-events">
+      <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0"><i class="bi bi-plus-circle text-primary me-2"></i><span id="eventFormTitle">Crear Nuevo Evento</span></h5>
+            <button class="btn btn-sm btn-outline-secondary rounded-pill d-none" id="cancelEditEventBtn" onclick="resetEventForm()">Cancelar Edición</button>
+          </div>
+          <form id="eventForm" class="row g-3">
+            <input type="hidden" id="eventId">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Título del Evento</label>
+              <input type="text" id="eventTitle" class="form-control rounded-3" maxlength="45" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Descripción corta</label>
+              <input type="text" id="eventDescription" class="form-control rounded-3" maxlength="45" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Fecha</label>
+              <input type="date" id="eventDate" class="form-control rounded-3" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Hora</label>
+              <input type="time" id="eventTime" class="form-control rounded-3" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-semibold">Precio ($ COP)</label>
+              <input type="number" id="eventPrice" class="form-control rounded-3" min="0" step="500" value="0" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-semibold">Categoría</label>
+              <select id="eventType" class="form-select rounded-3" required></select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label small fw-semibold">Lugar</label>
+              <select id="eventPlace" class="form-select rounded-3" required></select>
+            </div>
+            <div class="col-12 text-end">
+              <button type="submit" class="btn btn-login px-4">
+                <i class="bi bi-save me-1"></i> Guardar Evento
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-3">Eventos Programados</h5>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Título</th>
+                  <th>Categoría</th>
+                  <th>Lugar</th>
+                  <th>Fecha y Hora</th>
+                  <th>Entrada</th>
+                  <th class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="eventsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-places" class="d-none">
+      <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-3">Registrar Nuevo Lugar Cultural</h5>
+          <form id="placeForm" class="row g-3">
+            <div class="col-md-5">
+              <input type="text" id="placeName" class="form-control rounded-3" placeholder="Nombre del lugar (ej. Parque Principal)" maxlength="45" required>
+            </div>
+            <div class="col-md-5">
+              <input type="text" id="placeAdress" class="form-control rounded-3" placeholder="Dirección (ej. Calle 30 # 30-15)" maxlength="45" required>
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-login w-100">Agregar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <table class="table align-middle">
+            <thead class="table-light">
+              <tr><th>ID</th><th>Nombre del Lugar</th><th>Dirección</th><th class="text-end">Acciones</th></tr>
+            </thead>
+            <tbody id="placesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-types" class="d-none">
+      <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-3">Registrar Nueva Categoría</h5>
+          <form id="typeForm" class="row g-3">
+            <div class="col-md-9">
+              <input type="text" id="typeName" class="form-control rounded-3" placeholder="Nombre de la categoría (ej. Danza, Cerámica, Música)" maxlength="45" required>
+            </div>
+            <div class="col-md-3">
+              <button type="submit" class="btn btn-login w-100">Agregar Categoría</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <table class="table align-middle">
+            <thead class="table-light">
+              <tr><th>ID</th><th>Categoría</th><th class="text-end">Acciones</th></tr>
+            </thead>
+            <tbody id="typesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-users" class="d-none">
+      <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+          <h5 class="fw-bold mb-3">Crear Usuario (Admin u Organizer)</h5>
+          <form id="userForm" class="row g-3">
+            <div class="col-md-3">
+              <input type="text" id="newUserName" class="form-control rounded-3" placeholder="Nombre completo" maxlength="45" required>
+            </div>
+            <div class="col-md-3">
+              <input type="email" id="newUserEmail" class="form-control rounded-3" placeholder="Correo electrónico" maxlength="45" required>
+            </div>
+            <div class="col-md-2">
+              <select id="newUserRole" class="form-select rounded-3" onchange="toggleUserPlaceField()">
+                <option value="ORGANIZER">ORGANIZER</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            </div>
+            <div class="col-md-2" id="userPlaceWrapper">
+              <select id="newUserPlace" class="form-select rounded-3"></select>
+            </div>
+            <div class="col-md-2">
+              <input type="password" id="newUserPassword" class="form-control rounded-3" placeholder="Contraseña" maxlength="45" required>
+            </div>
+            <div class="col-12 text-end">
+              <button type="submit" class="btn btn-login px-4">Crear Usuario</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <table class="table align-middle">
+            <thead class="table-light">
+              <tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Lugar Asignado (ID)</th><th class="text-end">Acciones</th></tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-reports" class="d-none">
+      <div class="row g-4 mb-4">
+        <div class="col-md-4">
+          <div class="card border-0 shadow-sm rounded-4 p-4 text-center">
+            <span class="text-muted small fw-bold">TOTAL EVENTOS</span>
+            <h2 class="fw-bold text-primary mt-2 mb-0" id="repTotal">0</h2>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card border-0 shadow-sm rounded-4 p-4 text-center">
+            <span class="text-muted small fw-bold">EVENTOS GRATIS</span>
+            <h2 class="fw-bold text-success mt-2 mb-0" id="repFree">0</h2>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="card border-0 shadow-sm rounded-4 p-4 text-center">
+            <span class="text-muted small fw-bold">EVENTOS CON COSTO</span>
+            <h2 class="fw-bold text-warning mt-2 mb-0" id="repPaid">0</h2>
+          </div>
+        </div>
+      </div>
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm rounded-4 p-4">
+            <h6 class="fw-bold mb-3">Eventos por Categoría</h6>
+            <ul id="repByType" class="list-group list-group-flush"></ul>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm rounded-4 p-4">
+            <h6 class="fw-bold mb-3">Eventos por Lugar</h6>
+            <ul id="repByPlace" class="list-group list-group-flush"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
